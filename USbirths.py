@@ -111,9 +111,36 @@ ord_encoder = OrdinalEncoder(categories=[['15-19', '20-24', '25-29', '30-34',
                                           '35-39', '40-44', '45-49']])
 data_natality['Age of Mother encoded'] = ord_encoder.fit_transform(data_natality[['Age of Mother 9 Code']])
  
-#get standard deviations to get low, avg, and high for
-#birth weight, interval since last live birth
+#get standard deviations to get low, avg, and high for interval since last live birth
 #apply BMI categories
+#use standard deviations to get low, medium, and high birth weights
+birth_weight_mean = data_natality['Average Birth Weight (grams)'].mean()
+birth_weight_stdev = data_natality['Average Birth Weight (grams)'].std()
+birth_weight_low_threshold = birth_weight_mean - birth_weight_stdev
+birth_weight_high_threshold = birth_weight_mean + birth_weight_stdev
+def birth_weight_thresholds(bw):
+    if bw < birth_weight_low_threshold:
+        return 1
+    elif bw > birth_weight_high_threshold:
+        return 3
+    else:
+        return 2
+data_natality['Birth Weight Category'] = data_natality['Average Birth Weight (grams)'].apply(birth_weight_thresholds)
+#use standard deviations to get low, medium, and high intervals since last live birth
+interval_mean = data_natality['Average Interval Since Last Live Birth (months)'].mean()
+interval_stdev = data_natality['Average Interval Since Last Live Birth (months)'].std()
+interval_low_threshold = interval_mean - interval_stdev
+interval_high_threshold = interval_mean + interval_stdev
+def interval_thresholds(i):
+    if i < interval_low_threshold:
+        return 1
+    elif i > interval_high_threshold:
+        return 3
+    else:
+        return 2
+data_natality['Interval Category'] = data_natality['Average Interval Since Last Live Birth (months)'].apply(interval_thresholds)
+
+    
 
 #%%EDA
 #data.info()
