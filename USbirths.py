@@ -16,8 +16,9 @@ from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
 data_natality = pd.read_csv('C:/Users/crick/Documents/ML practice/Natality2016-2023.txt',
                             sep='\t')
 data_income = pd.read_csv('C:/Users/crick/Documents/ML practice/MD_census_income.csv')
-#%%clean data
+#%%clean data and merge
 data_natality_notes = data_natality.pop('Notes').dropna()
+data_natality['County of Residence'] = data_natality['County of Residence'].str.strip(', MD')
 
 #the data has some formatting related to nested categories
 #backfill the NaNs related to this and strip the whitespace from the nesting
@@ -50,6 +51,14 @@ data_income.loc[data_income['County'].str.startswith('Maryland'), 'County'] = 'M
 #drop some columns
 cols_to_drop = [col for col in data_income.columns if col.startswith('PERCENT')]
 data_income.drop(cols_to_drop, axis=1, inplace=True)
+data_income_totals = data_income.loc[data_income['Label (Grouping)'].str.endswith('Maryland')]
+data_income_totals['Median income (dollars)'] = data_income_totals['Median income (dollars)'].str.replace(',', '').astype(float)
+data_income_totals['Mean income (dollars)'] = data_income_totals['Mean income (dollars)'].str.replace(',', '').astype(float)
+
+
+data_natality = data_natality.merge(data_income_totals[['County', 'Median income (dollars)', 'Mean income (dollars)']],
+                                    how='left', left_on='County of Residence',
+                                    right_on='County')
 
 #%%check for mising values
 rows = data_natality.shape[0]
@@ -140,6 +149,21 @@ def interval_thresholds(i):
         return 2
 data_natality['Interval Category'] = data_natality['Average Interval Since Last Live Birth (months)'].apply(interval_thresholds)
 
+#use standard deviations to get low, medium, and high income
+income_mean = data_natality['Mean income (dollars)'].mean()
+income_stdev = data_natality['Mean income (dollars)'].std()
+income_low_threshold = income_mean - income_stdev
+income_high_threshold = income_mean + income_stdev
+def income_thresholds(i):
+    if i < income_low_threshold:
+        return 1
+    elif i > income_high_threshold:
+        return 3
+    else:
+        return 2
+data_natality['Income Category'] = data_natality['Mean income (dollars)'].apply(income_thresholds)
+
+
 #add BMI categories following:
 #Underweight: BMI is less than 18.5
 #Normal weight: BMI is 18.5 to 24.9
@@ -165,7 +189,12 @@ data_natality['BMI Category'] = data_natality['Average Pre-pregnancy BMI'].apply
 #%%EDA
 #data.info()
 describe = data_natality.describe()
-numerical_columns = data_natality.select_dtypes(include=["int64", "float64"]).columns
+numerical_columns = ['Births', 'Average Age of Mother (years)',
+                     'Average OE Gestational Age (weeks)', 
+                     'Average Birth Weight (grams)', 'Average Pre-pregnancy BMI', 
+                     'Average Number of Prenatal Visits',
+                     'Average Interval Since Last Live Birth (months)',
+                     'Median income (dollars)', 'Mean income (dollars)']
 
 #check for outliers with histograms
 plt.figure(figsize=(14, len(numerical_columns) * 3))
@@ -179,43 +208,51 @@ plt.show()
 
 min_prenatal_visits = data_natality['Average Number of Prenatal Visits'].mean() - (3 * data_natality['Average Number of Prenatal Visits'].std())
 max_prenatal_visits = data_natality['Average Number of Prenatal Visits'].mean() + (3 * data_natality['Average Number of Prenatal Visits'].std())
-outliers_prenatal_visits = data_natality.loc[data_natality['Average Number of Prenatal Visits'] > max_prenatal_visits]
+outliers_prenatal_visits = data_natality.loc[(data_natality['Average Number of Prenatal Visits'] > max_prenatal_visits) | (data_natality['Average Number of Prenatal Visits'] < min_prenatal_visits)]
 print('prenatal visits outliers:',
       len(outliers_prenatal_visits),
       '{:.1%}'.format(len(outliers_prenatal_visits)/rows))
 
 min_age = data_natality['Average Age of Mother (years)'].mean() - (3 * data_natality['Average Age of Mother (years)'].std())
 max_age = data_natality['Average Age of Mother (years)'].mean() + (3 * data_natality['Average Age of Mother (years)'].std())
-outliers_age = data_natality.loc[data_natality['Average Age of Mother (years)'] > max_age]
+outliers_age = data_natality.loc[(data_natality['Average Age of Mother (years)'] > max_age) | (data_natality['Average Age of Mother (years)'] < min_age)]
 print('age outliers:',
       len(outliers_age),
       '{:.1%}'.format(len(outliers_age)/rows))
 
 min_birth_weight = data_natality['Average Birth Weight (grams)'].mean() - (3 * data_natality['Average Birth Weight (grams)'].std())
 max_birth_weight = data_natality['Average Birth Weight (grams)'].mean() + (3 * data_natality['Average Birth Weight (grams)'].std())
-outliers_birth_weight = data_natality.loc[data_natality['Average Birth Weight (grams)'] > max_birth_weight]
+outliers_birth_weight = data_natality.loc[(data_natality['Average Birth Weight (grams)'] > max_birth_weight) | (data_natality['Average Birth Weight (grams)'] < min_birth_weight)]
 print('birth weight outliers:',
       len(outliers_birth_weight),
       '{:.1%}'.format(len(outliers_birth_weight)/rows))
 
 min_gest_age = data_natality['Average OE Gestational Age (weeks)'].mean() - (3 * data_natality['Average OE Gestational Age (weeks)'].std())
 max_gest_age = data_natality['Average OE Gestational Age (weeks)'].mean() + (3 * data_natality['Average OE Gestational Age (weeks)'].std())
-outliers_gest_age = data_natality.loc[data_natality['Average OE Gestational Age (weeks)'] > max_gest_age]
+outliers_gest_age = data_natality.loc[(data_natality['Average OE Gestational Age (weeks)'] > max_gest_age) | (data_natality['Average OE Gestational Age (weeks)'] < min_gest_age)]
 print('gestational age outliers:',
       len(outliers_gest_age),
       '{:.1%}'.format(len(outliers_gest_age)/rows))
 
 min_bmi = data_natality['Average Pre-pregnancy BMI'].mean() - (3 * data_natality['Average Pre-pregnancy BMI'].std())
 max_bmi = data_natality['Average Pre-pregnancy BMI'].mean() + (3 * data_natality['Average Pre-pregnancy BMI'].std())
-outliers_bmi = data_natality.loc[data_natality['Average Pre-pregnancy BMI'] > max_bmi]
+outliers_bmi = data_natality.loc[(data_natality['Average Pre-pregnancy BMI'] > max_bmi) | (data_natality['Average Pre-pregnancy BMI'] < min_bmi)]
 print('BMI outliers:',
       len(outliers_bmi),
       '{:.1%}'.format(len(outliers_bmi)/rows))
 
 min_inter = data_natality['Average Interval Since Last Live Birth (months)'].mean() - (3 * data_natality['Average Interval Since Last Live Birth (months)'].std())
 max_inter = data_natality['Average Interval Since Last Live Birth (months)'].mean() + (3 * data_natality['Average Interval Since Last Live Birth (months)'].std())
-outliers_inter = data_natality.loc[data_natality['Average Interval Since Last Live Birth (months)'] > max_inter]
+outliers_inter = data_natality.loc[(data_natality['Average Interval Since Last Live Birth (months)'] > max_inter) | (data_natality['Average Interval Since Last Live Birth (months)'] < min_inter)]
 print('Interval Since Last Live Birth outliers:',
       len(outliers_inter),
       '{:.1%}'.format(len(outliers_inter)/rows))
+
+min_income = data_natality['Mean income (dollars)'].mean() - (3 * data_natality['Mean income (dollars)'].std())
+max_income = data_natality['Mean income (dollars)'].mean() + (3 * data_natality['Mean income (dollars)'].std())
+outliers_income = data_natality.loc[(data_natality['Mean income (dollars)'] > max_income) | (data_natality['Mean income (dollars)'] < min_income)]
+print('Income outliers:',
+      len(outliers_income),
+      '{:.1%}'.format(len(outliers_income)/rows))
+
 
