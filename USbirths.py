@@ -195,7 +195,7 @@ numerical_columns = ['Births', 'Average Age of Mother (years)',
                      'Average Number of Prenatal Visits',
                      'Average Interval Since Last Live Birth (months)',
                      'Median income (dollars)', 'Mean income (dollars)']
-
+#income is a multimodal distribution
 #check for outliers with histograms
 plt.figure(figsize=(14, len(numerical_columns) * 3))
 for idx, feature in enumerate(numerical_columns, 1):
@@ -248,6 +248,7 @@ print('Interval Since Last Live Birth outliers:',
       len(outliers_inter),
       '{:.1%}'.format(len(outliers_inter)/rows))
 
+
 min_income = data_natality['Mean income (dollars)'].mean() - (3 * data_natality['Mean income (dollars)'].std())
 max_income = data_natality['Mean income (dollars)'].mean() + (3 * data_natality['Mean income (dollars)'].std())
 outliers_income = data_natality.loc[(data_natality['Mean income (dollars)'] > max_income) | (data_natality['Mean income (dollars)'] < min_income)]
@@ -256,3 +257,25 @@ print('Income outliers:',
       '{:.1%}'.format(len(outliers_income)/rows))
 
 
+correlation_matrix = data_natality[['Number of Prenatal Visits Code', 
+                                    'NICU Admission Code', 'Births', 
+                                    'Average Age of Mother (years)', 
+                                    'Average OE Gestational Age (weeks)', 
+                                    'Average Birth Weight (grams)', 
+                                    'Average Pre-pregnancy BMI', 
+                                    'Average Number of Prenatal Visits', 
+                                    'Average Interval Since Last Live Birth (months)', 
+                                    'Median income (dollars)', 'Mean income (dollars)', 
+                                    'Age of Mother encoded', 'Birth Weight Category', 
+                                    'Interval Category', 'Income Category', 
+                                    'BMI Category']].corr()
+#features with higher correlations:
+#gestational age NICU admission
+#birth weight (and category) and NICU admission
+#avg age of mother and avg interval since last birth
+#birth weight (and cat) and gestational age
+
+
+#cluster the data to look for relationships
+#PCA then k-means
+#rand stat
